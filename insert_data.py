@@ -1,35 +1,25 @@
 import pandas as pd
-import pymysql
+import subprocess
+import os
 
-# Load the Excel file into a DataFrame
-purchase_frequency = pd.read_excel('processed_purchase_frequency.xlsx')
+# 1️⃣ Load Excel file into DataFrame
+excel_path = "processed_purchase_frequency.xlsx"
+purchase_frequency = pd.read_excel(excel_path)
 
-# Establish a connection to MySQL
-connection = pymysql.connect(
-    host='localhost',
-    user='root',
-    password='',
-    database='customer_data'
-)
+# 2️⃣ Save it locally as CSV
+local_csv = "processed_purchase_frequency.csv"
+purchase_frequency.to_csv(local_csv, index=False)
 
-# Create a cursor object using the connection
-cursor = connection.cursor()
+# 3️⃣ Define your target HDFS path
+hdfs_dir = "/user/hadoop/purchase_frequency/"
+hdfs_path = hdfs_dir + os.path.basename(local_csv)
 
-# Loop through each row in the DataFrame and insert it into the MySQL table
-for index, row in purchase_frequency.iterrows():
-    customer_id = row['CustomerID']
-    purchase_count = row['PurchaseCount']
-    frequency_category = row['FrequencyCategory']
+# 4️⃣ Create HDFS directory if it doesn’t exist
+subprocess.run(["hdfs.cmd", "dfs", "-mkdir", "-p", hdfs_dir], check=True)
 
-    # Insert data into the table
-    cursor.execute("""
-        INSERT INTO purchase_frequency (CustomerID, PurchaseCount, FrequencyCategory)
-        VALUES (%s, %s, %s)
-    """, (customer_id, purchase_count, frequency_category))
+# 5️⃣ Upload CSV to HDFS
+subprocess.run(["hdfs.cmd", "dfs", "-put", "-f", local_csv, hdfs_path], check=True)
 
-# Commit the transaction to save the changes
-connection.commit()
-
-# Close the cursor and connection
-cursor.close()
-connection.close()
+print(f"✅ File successfully uploaded to HDFS: {hdfs_path}")
+print("🌐 You can now view it at:")
+print(f"http://localhost:9870/explorer.html#{hdfs_path}")
